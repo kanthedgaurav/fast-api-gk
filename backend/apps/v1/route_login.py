@@ -1,0 +1,31 @@
+import json 
+
+from fastapi import APIRouter,Request , Depends
+from fastapi.templating import Jinja2Templates
+from fastapi import responses, status, Form
+from sqlalchemy.orm import session
+
+from db.session import get_db
+from schemas.user import UserCreate
+from db.repository.user import create_new_user
+
+templates = Jinja2Templates(directory="templates")
+
+router = APIRouter()
+
+@router.get("/register")
+def resgister(request: Request):
+    return templates.TemplateResponse("auth/register.html", {"request": request})
+
+@router.post("/register")
+def resgister(request: Request,  email: str = Form(...), password: str = Form(...), db: session = Depends(get_db)):
+    errors = []
+    try:
+        user = UserCreate( email=email, password=password)
+        create_new_user(user, db)
+        return responses.RedirectResponse(url="/?msg=Successfully Registered", status_code=status.HTTP_302_FOUND)
+    except Exception as e:
+        erros_list = json.loads(e.json())
+        for item in erros_list:
+            errors.append(item.get("loc")[0] +": "+ item.get("msg"))
+        return templates.TemplateResponse("auth/register.html", {"request": request, "errors": errors, "email": email})
